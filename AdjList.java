@@ -3,23 +3,19 @@ import java.util.*;
 class AdjList {
     private Map<String, List<Edge>> adjacencyList;
 
-    // Constructor
     public AdjList() {
         this.adjacencyList = new HashMap<>();
     }
 
-    // Add a node (location)
     public void addNode(String node) {
         adjacencyList.putIfAbsent(node, new ArrayList<>());
     }
 
-    // Add an edge (connection) with weight
     public void addEdge(String node1, String node2, int weight) {
         adjacencyList.get(node1).add(new Edge(node2, weight));
-        adjacencyList.get(node2).add(new Edge(node1, weight)); // Omit for directed graph
+        adjacencyList.get(node2).add(new Edge(node1, weight));
     }
 
-    // Display the graph
     public void display() {
         for (Map.Entry<String, List<Edge>> entry : adjacencyList.entrySet()) {
             System.out.print(entry.getKey() + ": ");
@@ -30,7 +26,6 @@ class AdjList {
         }
     }
 
-    // Nested class for edges
     static class Edge {
         String node;
         int weight;
@@ -41,7 +36,6 @@ class AdjList {
         }
     }
 
-    // Main method
     public static void main(String[] args) {
         AdjList graph = new AdjList();
 
