@@ -4,101 +4,70 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashSet;
+import java.util.Queue;
+import java.util.LinkedList;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class WebCrawler {
-    private final Set<String> visitedUrls = Collections.synchronizedSet(new HashSet<>());
-    private final Queue<String> urlQueue = new ConcurrentLinkedQueue<>();
+    private final Queue<String> urlQueue = new LinkedList<>();
+    private final Set<String> visitedUrls = new HashSet<>();
     private final ExecutorService executorService;
-    private final int maxDepth;
+    private static final int MAX_THREADS = 5;
 
-    public WebCrawler(int threadCount, int maxDepth) {
-        this.executorService = Executors.newFixedThreadPool(threadCount);
-        this.maxDepth = maxDepth;
+    public WebCrawler() {
+        this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
     }
 
     public void startCrawling(String startUrl) {
-        urlQueue.add(startUrl);
-        List<Future<?>> futures = new ArrayList<>();
+        urlQueue.offer(startUrl);
 
         while (!urlQueue.isEmpty()) {
             String url = urlQueue.poll();
-            if (url == null || visitedUrls.contains(url)) {
-                continue;
-            }
-
-            visitedUrls.add(url);
-            Callable<Void> task = () -> {
-                crawl(url, 0);
-                return null;
-            };
-            futures.add(executorService.submit(task));
-        }
-
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            } catch (Exception e) {
-                System.err.println("Error in task execution: " + e.getMessage());
+            if (url != null && !visitedUrls.contains(url)) {
+                visitedUrls.add(url);
+                executorService.execute(() -> fetchPage(url));
             }
         }
 
         executorService.shutdown();
     }
 
-    private void crawl(String url, int depth) {
-        if (depth > maxDepth) {
-            return;
-        }
+    private void fetchPage(String url) {
         try {
-            System.out.println("Crawling URL: " + url);
-            String content = fetchContent(url);
+            System.out.println("Crawling: " + url);
+            HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
 
-            System.out.println("Fetched content size: " + content.length());
-
-            List<String> links = extractLinks(content);
-            for (String link : links) {
-                if (!visitedUrls.contains(link)) {
-                    urlQueue.add(link);
+            int responseCode = connection.getResponseCode();
+            if (responseCode == 200) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    extractUrls(line);
                 }
+                reader.close();
             }
         } catch (Exception e) {
-            System.err.println("Error fetching URL " + url + ": " + e.getMessage());
+            System.err.println("Failed to crawl: " + url + " | Error: " + e.getMessage());
         }
     }
 
-    private String fetchContent(String urlString) throws Exception {
-        StringBuilder content = new StringBuilder();
-        URL url = new URL(urlString);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line);
+    private void extractUrls(String content) {
+        if (content.contains("http")) {
+            String foundUrl = "http://example.com/newpage";
+            if (!visitedUrls.contains(foundUrl)) {
+                urlQueue.offer(foundUrl);
             }
         }
-        return content.toString();
-    }
-
-    private List<String> extractLinks(String content) {
-        List<String> links = new ArrayList<>();
-        String regex = "href=\"(http[s]?://[^\"]+)\"";
-        Matcher matcher = Pattern.compile(regex).matcher(content);
-        while (matcher.find()) {
-            links.add(matcher.group(1));
-        }
-        return links;
     }
 
     public static void main(String[] args) {
-        String startUrl = "https://example.com";
-        int threadCount = 5;
-        int maxDepth = 2;
-
-        WebCrawler crawler = new WebCrawler(threadCount, maxDepth);
-        crawler.startCrawling(startUrl);
+        WebCrawler crawler = new WebCrawler();
+        crawler.startCrawling("http://example.com");
     }
 }
