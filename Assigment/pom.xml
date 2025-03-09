@@ -1,0 +1,7 @@
+<dependencies>
+    <dependency>
+        <groupId>org.jgrapht</groupId>
+        <artifactId>jgrapht-core</artifactId>
+        <version>1.5.1</version>
+    </dependency>
+</dependencies>
